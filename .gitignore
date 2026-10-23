@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Data files - keep measurement data out of the repository.
+# Remove this line if you want to commit example CSVs.
+*.csv
+
+# Local Claude Code settings
+.claude/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
