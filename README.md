@@ -30,6 +30,24 @@ Only the first block of data is read: everything after the first blank row (e.g.
 
 Processing order: depth calibration → trim → smoothing → normalization.
 
+## Multiple spots
+
+Upload up to 12 single spot files together (repeated raster files are loaded one at a time). A **View** selector appears in the sidebar:
+
+- **Average**: the mean of all included spots for each selected isotope, with an optional shaded ±1 SD band (sample standard deviation).
+- **Single spot**: one spot on its own, chosen from a dropdown.
+- **Compare spots**: one isotope, with every spot as a thin line and the average as a thick black line. Excluded spots are shown dotted grey.
+
+How the average is calculated:
+
+- Each spot is processed on its own first (trim, smoothing, normalization), then the spots are averaged point by point. Normalizing before averaging means the average is the typical ratio across spots, and no single spot with a stronger overall signal dominates it.
+- Spots are matched by time stamp (all spots are assumed to start at t = 0). If they have different lengths, the average covers only the range that every spot shares.
+- With depth conversion on, every spot is assumed to reach the same total depth.
+- An isotope missing from some files is averaged over the files that contain it; the caption lists such isotopes.
+- Untick a spot under **Spots included in the average** to leave it out without re-uploading.
+
+The CSV download contains the mean and SD columns (Average), the processed spot (Single spot), or every spot plus the mean and SD for the chosen isotope (Compare spots).
+
 ## Run locally
 
 ```bash
@@ -46,7 +64,7 @@ streamlit run app.py
 ## Files
 
 - `app.py`: Streamlit user interface.
-- `depth_profile.py`: CSV parsing and processing (format detection, normalization, smoothing, depth conversion).
+- `depth_profile.py`: CSV parsing and processing (format detection, normalization, smoothing, depth conversion, multi-spot averaging).
 - `requirements.txt`: Python dependencies.
 
 CSV files are excluded by `.gitignore` so measurement data is not committed by accident.

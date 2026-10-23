@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import io
 import re
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -183,9 +184,21 @@ def parse_csv(content: bytes | str) -> Profile:
 # Processing
 # --------------------------------------------------------------------------- #
 
-def strongest_isotopes(profile: Profile, n: int = 8) -> list[str]:
-    """Labels of the n isotopes with the highest mean signal."""
-    return profile.data.mean().sort_values(ascending=False).head(n).index.tolist()
+def strongest_isotopes(profiles: Profile | list[Profile], n: int = 8) -> list[str]:
+    """Labels of the n isotopes with the highest mean signal (averaged over profiles)."""
+    if isinstance(profiles, Profile):
+        profiles = [profiles]
+    means = pd.concat([p.data.mean() for p in profiles], axis=1).mean(axis=1)
+    return means.sort_values(ascending=False).head(n).index.tolist()
+
+
+def union_isotopes(profiles: list[Profile]) -> list[Isotope]:
+    """All isotopes found in any of the profiles, in order of first appearance."""
+    seen: dict[str, Isotope] = {}
+    for p in profiles:
+        for iso in p.isotopes:
+            seen.setdefault(iso.label, iso)
+    return list(seen.values())
 
 
 def _same_signal(a: pd.Series, b: pd.Series) -> bool:
@@ -259,11 +272,63 @@ def process(
         denom = total_signal(profile, data)
         data = data.div(denom.where(denom != 0), axis=0)
     elif normalization:
-        denom = data[normalization]
-        data = data.div(denom.where(denom != 0), axis=0)
+        if normalization in data.columns:
+            denom = data[normalization]
+            data = data.div(denom.where(denom != 0), axis=0)
+        else:  # isotope not measured in this file: nothing to normalize to
+            data = data * np.nan
 
     if depth is not None:
         data.index = depth
     else:
         data.index.name = profile.x_label
     return data
+
+
+# --------------------------------------------------------------------------- #
+# Multiple spots
+# --------------------------------------------------------------------------- #
+
+def align_results(results: list[pd.DataFrame], labels: list[str]) -> list[pd.DataFrame]:
+    """Put processed results from several spots on one common x grid.
+
+    The grid is the x values of the shortest result, limited to the range that
+    every result covers, so the average never mixes in fewer spots at the end.
+    Spots with identical time stamps are matched exactly; otherwise values are
+    linearly interpolated. Isotopes missing from a spot are NaN.
+    """
+    lo = max(float(r.index.min()) for r in results)
+    hi = min(float(r.index.max()) for r in results)
+    ref = min(results, key=lambda r: float(r.index.max()))
+    grid = ref.index[(ref.index >= lo - 1e-9) & (ref.index <= hi + 1e-9)]
+    gx = grid.to_numpy(dtype=float)
+
+    aligned = []
+    for r in results:
+        rx = r.index.to_numpy(dtype=float)
+        out = {}
+        for label in labels:
+            if label not in r.columns:
+                out[label] = np.full(len(gx), np.nan)
+            elif len(rx) == len(gx) and np.allclose(rx, gx):
+                out[label] = r[label].to_numpy(dtype=float)
+            else:
+                out[label] = np.interp(gx, rx, r[label].to_numpy(dtype=float), left=np.nan, right=np.nan)
+        aligned.append(pd.DataFrame(out, index=grid))
+    return aligned
+
+
+def average_results(aligned: list[pd.DataFrame]) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+    """Mean and sample standard deviation across spots, point by point.
+
+    Returns (mean, sd, n) where n is the number of spots that contain each isotope.
+    """
+    stack = np.stack([a.to_numpy(dtype=float) for a in aligned])  # spots x points x isotopes
+    index, columns = aligned[0].index, aligned[0].columns
+    with np.errstate(all="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN slices
+        mean = np.nanmean(stack, axis=0)
+        sd = np.nanstd(stack, axis=0, ddof=1)
+    n = pd.Series([int((~np.isnan(stack[:, :, j])).any(axis=1).sum()) for j in range(stack.shape[2])],
+                  index=columns)
+    return pd.DataFrame(mean, index=index, columns=columns), pd.DataFrame(sd, index=index, columns=columns), n
