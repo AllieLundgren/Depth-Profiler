@@ -103,7 +103,7 @@ with st.sidebar:
 
     normalization = st.selectbox(
         "Normalization",
-        [NONE_OPTION, TOTAL_OPTION, *labels],
+        [NONE_OPTION, TOTAL_OPTION, *[i.label for i in sorted(profile.isotopes, key=lambda i: (i.mass, i.label))]],
         key=f"norm::{file_id}",
         help=(
             "Divide every signal, point by point, by the chosen isotope's signal. "
