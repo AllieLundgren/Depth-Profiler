@@ -26,6 +26,7 @@ Only the first block of data is read: everything after the first blank row (e.g.
 - **Range trim**: drop points at the start or end (e.g. a spike in the first point).
 - **Depth conversion**: enter the total depth reached (µm) to convert the x-axis to depth. A constant ablation rate is assumed: the first point of the full profile is 0 µm and the last is the depth entered. Trimming does not change this calibration.
 - **Log / linear** y-axis.
+- **Line colors**: a color picker for each selected isotope (sidebar → *Line colors*). An isotope keeps its color when other isotopes are ticked or unticked, and a newly ticked isotope gets a color not already in use. *Reset colors* returns to the default palette. Colors carry through to the PNG and HTML downloads.
 - **Downloads**: the plot as a high-resolution PNG, processed data (CSV) for the selected isotopes, and the interactive plot (HTML).
 
 Processing order: depth calibration → trim → smoothing → normalization.
