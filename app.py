@@ -278,7 +278,7 @@ with st.sidebar:
     )
 
     smoothing = st.slider(
-        "Smoothing (moving average window, points)", min_value=1, max_value=25, value=1,
+        "Smoothing (moving average window, points)", min_value=1, max_value=100, value=1,
         key=f"smooth::{set_id}",
         help="Centered moving average. 1 = no smoothing.",
     )
